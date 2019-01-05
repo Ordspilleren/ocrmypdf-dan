@@ -10,11 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ocrmypdf \
   pngquant \
   python3-pip \
-  python3-venv \
+  python3-setuptools \
   tesseract-ocr \
   tesseract-ocr-eng \
   tesseract-ocr-dan \
   unpaper \
+  inotify-tools \
   wget
 
 
@@ -31,28 +32,16 @@ RUN \
   && cd .. \
   && rm -rf jbig2
 
-RUN apt-get remove -y autoconf automake libtool
-
-RUN python3 -m venv --system-site-packages /appenv
-
 # This installs the latest binary wheel instead of the code in the current
 # folder. Installing from source will fail, apparently because cffi needs
 # build-essentials (gcc) to do a source installation
 # (i.e. "pip install ."). It's unclear to me why this is the case.
-RUN . /appenv/bin/activate; \
-  pip install --upgrade pip \
-  && pip install --upgrade ocrmypdf
-
-# Now copy the application in, mainly to get the test suite.
-# Do this now to make the best use of Docker cache.
-COPY . /application
-RUN . /appenv/bin/activate; \
-  pip install -r /application/requirements/test.txt
+RUN pip3 install --upgrade ocrmypdf
 
 # Remove the junk, including the source version of application since it was
 # already installed
-RUN rm -rf /tmp/* /var/tmp/* /root/* /application/ocrmypdf \
-  && apt-get remove -y build-essential \
+RUN rm -rf /tmp/* /var/tmp/* /root/* \
+  && apt-get remove -y autoconf automake libtool build-essential \
   && apt-get autoremove -y \
   && apt-get autoclean -y
 
@@ -63,6 +52,5 @@ RUN useradd docker \
 USER docker
 WORKDIR /home/docker
 
-# Must use array form of ENTRYPOINT
-# Non-array form does not append other arguments, because that is "intuitive"
-ENTRYPOINT ["/application/.docker/docker-wrapper.sh"]
+COPY runocr.sh /
+ENTRYPOINT ["/runocr.sh"]
